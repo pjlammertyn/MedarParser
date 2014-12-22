@@ -10,7 +10,7 @@ namespace MedarParser.Model
     {
         public Labo()
         {
-            Results = new List<LaboResult>();
+            ResultGroups = new List<LaboResultGroup>();
         }
 
         public string Code { get; set; }
@@ -19,6 +19,6 @@ namespace MedarParser.Model
         public Contact Contact { get; set; }
         public DateTime? ArrivalDate { get; set; }
         public Doctor Doctor { get; set; }
-        public IList<LaboResult> Results { get; set; }
+        public IList<LaboResultGroup> ResultGroups { get; set; }
     }
 }

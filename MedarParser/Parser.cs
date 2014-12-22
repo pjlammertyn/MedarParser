@@ -280,13 +280,58 @@ namespace MedarParser
             if (recordParts.Count != 5)
                 ParserErrors.AddItem(lineNumber, string.Format("Expected 5 parts in R1 but got {0} parts: '{1}'", recordParts.Count, string.Join("\\", recordParts)));
 
-            var result = new LaboResult();
-            labo.Results.Add(result);
-            result.Code = recordParts.ElementAtOrDefault(0);
-            result.Description = recordParts.ElementAtOrDefault(1);
-            result.Boundaries = recordParts.ElementAtOrDefault(2);
-            result.Units = recordParts.ElementAtOrDefault(3);
-            result.Result = recordParts.ElementAtOrDefault(4);
+            var code = recordParts.ElementAtOrDefault(0);
+            var description = recordParts.ElementAtOrDefault(1);
+            if (code.IsNullOrEmpty())
+            {
+                if (description.IsNullOrEmpty()) //TITLE
+                {
+                    var resultGroup = new LaboResultGroup();
+                    resultGroup.Title = recordParts.ElementAtOrDefault(4);
+                    labo.ResultGroups.Add(resultGroup);
+                }
+                else //COMMENT ON PREVIOUS ANALYSIS
+                {
+                    var lastResultGroup = labo.ResultGroups.Last();
+                    if (lastResultGroup == null)
+                    {
+                        ParserErrors.AddItem(lineNumber, string.Format("No result group found: '{0}'", string.Join("\\", recordParts)));
+                        lastResultGroup = new LaboResultGroup();
+                        labo.ResultGroups.Add(lastResultGroup);
+                    }
+
+                    var previousAnalysis = lastResultGroup.Results.Last();
+                    if (previousAnalysis == null)
+                        ParserErrors.AddItem(lineNumber, string.Format("No previous comment found to add coment to: '{0}'", string.Join("\\", recordParts)));
+                    else
+                        string.Concat(previousAnalysis.Comment, previousAnalysis.Comment.IsNullOrEmpty() ? null : Environment.NewLine, recordParts.ElementAtOrDefault(4));
+                }
+            }
+            else
+            {
+                if (description.IsNullOrEmpty()) //SPECIFIC COMMENT TO REFERENCED ANALYSIS
+                {
+           
+                }
+                else //NORMAL ANALYSIS
+                { 
+                    var lastResultGroup = labo.ResultGroups.Last();
+                    if (lastResultGroup == null)
+                    {
+                        ParserErrors.AddItem(lineNumber, string.Format("No result group found: '{0}'", string.Join("\\", recordParts)));
+                        lastResultGroup = new LaboResultGroup();
+                        labo.ResultGroups.Add(lastResultGroup);
+                    }
+
+                    var result = new LaboResult();
+                    lastResultGroup.Results.Add(result);
+                    result.Code = code;
+                    result.Description = description;
+                    result.Boundaries = recordParts.ElementAtOrDefault(2);
+                    result.Units = recordParts.ElementAtOrDefault(3);
+                    result.Result = recordParts.ElementAtOrDefault(4);
+                }
+            }
         }
 
         Letter ParseLetterBlock(TextReader reader, string line)

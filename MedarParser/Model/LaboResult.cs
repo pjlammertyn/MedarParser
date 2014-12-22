@@ -13,5 +13,6 @@ namespace MedarParser.Model
         public string Boundaries { get; set; }
         public string Units { get; set; }
         public string Result { get; set; }
+        public string Comment { get; set; }
     }
 }
