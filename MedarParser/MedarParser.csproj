@@ -40,10 +40,16 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Model\Body.cs" />
+    <Compile Include="Model\Contact.cs" />
+    <Compile Include="Model\ContactType.cs" />
+    <Compile Include="Model\Doctor.cs" />
     <Compile Include="Model\Exam.cs" />
     <Compile Include="Model\Header.cs" />
     <Compile Include="Model\Info.cs" />
+    <Compile Include="Model\Labo.cs" />
+    <Compile Include="Model\LaboResult.cs" />
     <Compile Include="Model\Letter.cs" />
+    <Compile Include="Model\Mutuality.cs" />
     <Compile Include="Model\Patient.cs" />
     <Compile Include="Model\Person.cs" />
     <Compile Include="Model\Sex.cs" />
@@ -52,7 +58,7 @@
     <Compile Include="Utils.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="MedarParser.0.0.1.nupkg" />
+    <None Include="MedarParser.0.0.2.nupkg" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

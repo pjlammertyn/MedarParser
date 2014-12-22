@@ -6,10 +6,10 @@ using System.Threading.Tasks;
 
 namespace MedarParser.Model
 {
-    public enum Sex
+    public enum ContactType
     {
         Unknown,
-        Male,
-        Female
+        Consultation,
+        Hospitalization
     }
 }

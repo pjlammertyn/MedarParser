@@ -6,10 +6,9 @@ using System.Threading.Tasks;
 
 namespace MedarParser.Model
 {
-    public enum Sex
+    public class Doctor
     {
-        Unknown,
-        Male,
-        Female
+        public string FirstName { get; set; }
+        public string LastName { get; set; }
     }
 }

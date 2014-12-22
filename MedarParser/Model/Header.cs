@@ -10,7 +10,7 @@ namespace MedarParser.Model
     {
         public Person From { get; set; }
         public Person To { get; set; }
-        public Patient Subject { get; set; }
+        public LetterPatient Subject { get; set; }
         public Info Info { get; set; }
     }
 }
