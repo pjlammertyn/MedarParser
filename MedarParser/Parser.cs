@@ -372,6 +372,9 @@ namespace MedarParser
         {
             var person = new Person();
 
+            if (line == null || line.Length < 12)
+                return null;
+
             var lineParts = line.Maybe(s => s.Substring(11).Split('|').ToList());
             if (lineParts.Count != 6)
                 ParserErrors.AddItem(lineNumber, string.Format("Expected 6 parts in /FROM but got {0} parts: '{1}'", lineParts.Count, line));
@@ -393,6 +396,9 @@ namespace MedarParser
         {
             var person = new Person();
 
+            if (line == null || line.Length < 12)
+                return null;
+
             var lineParts = line.Maybe(s => s.Substring(11).Split('|').ToList());
             if (lineParts.Count != 6)
                 ParserErrors.AddItem(lineNumber, string.Format("Expected 6 parts in /TO but got {0} parts: '{1}'", lineParts.Count, line));
@@ -413,6 +419,9 @@ namespace MedarParser
         LetterPatient ParseSubject(string line)
         {
             var patient = new LetterPatient();
+
+            if (line == null || line.Length < 12)
+                return null;
 
             var lineParts = line.Maybe(s => s.Substring(11).Split('|').ToList());
             if (lineParts.Count != 7)
@@ -447,6 +456,9 @@ namespace MedarParser
         Info ParseInfo(string line)
         {
             var info = new Info();
+
+            if (line == null || line.Length < 12)
+                return null;
 
             var lineParts = line.Maybe(s => s.Substring(11).Split('|').ToList());
             if (lineParts.Count != 2)
