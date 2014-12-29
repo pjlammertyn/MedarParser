@@ -86,7 +86,7 @@ namespace MedarParser
             {
                 var currentLineNumber = LineNumber(line);
                 if (currentLineNumber != (previousLineNumber + 1))
-                    ParserErrors.AddItem(lineNumber, string.Format("Lines not in sequence: line {0} followed by line {1}: {2}", previousLineNumber, currentLineNumber));
+                    ParserErrors.AddItem(lineNumber, string.Format("Lines not in sequence: line {0} followed by line {1}: {2}", previousLineNumber, currentLineNumber, line));
                 previousLineNumber = currentLineNumber;
 
                 var currentLaboCode = LaboCode(line);
