@@ -85,6 +85,8 @@ namespace MedarParser
             do
             {
                 var currentLineNumber = LineNumber(line);
+                if (currentLineNumber == 9999)
+                    break;
                 if (currentLineNumber != (previousLineNumber + 1))
                     ParserErrors.AddItem(lineNumber, string.Format("Lines not in sequence: line {0} followed by line {1}: {2}", previousLineNumber, currentLineNumber, line));
                 previousLineNumber = currentLineNumber;
@@ -280,8 +282,8 @@ namespace MedarParser
             if (recordParts.Count != 5)
                 ParserErrors.AddItem(lineNumber, string.Format("Expected 5 parts in R1 but got {0} parts: '{1}'", recordParts.Count, string.Join("\\", recordParts)));
 
-            var code = recordParts.ElementAtOrDefault(0);
-            var description = recordParts.ElementAtOrDefault(1);
+            var code = recordParts.ElementAtOrDefault(0).Maybe(s => s.Trim());
+            var description = recordParts.ElementAtOrDefault(1).Maybe(s => s.Trim());
             if (code.IsNullOrEmpty())
             {
                 if (description.IsNullOrEmpty()) //TITLE
