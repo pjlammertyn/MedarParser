@@ -294,7 +294,7 @@ namespace MedarParser
                 }
                 else //COMMENT ON PREVIOUS ANALYSIS
                 {
-                    var lastResultGroup = labo.ResultGroups.Last();
+                    var lastResultGroup = labo.ResultGroups.LastOrDefault();
                     if (lastResultGroup == null)
                     {
                         ParserErrors.AddItem(lineNumber, string.Format("No result group found: '{0}'", string.Join("\\", recordParts)));
@@ -302,7 +302,7 @@ namespace MedarParser
                         labo.ResultGroups.Add(lastResultGroup);
                     }
 
-                    var previousAnalysis = lastResultGroup.Results.Last();
+                    var previousAnalysis = lastResultGroup.Results.LastOrDefault();
                     if (previousAnalysis == null)
                         ParserErrors.AddItem(lineNumber, string.Format("No previous comment found to add coment to: '{0}'", string.Join("\\", recordParts)));
                     else
@@ -316,8 +316,8 @@ namespace MedarParser
            
                 }
                 else //NORMAL ANALYSIS
-                { 
-                    var lastResultGroup = labo.ResultGroups.Last();
+                {
+                    var lastResultGroup = labo.ResultGroups.LastOrDefault();
                     if (lastResultGroup == null)
                     {
                         ParserErrors.AddItem(lineNumber, string.Format("No result group found: '{0}'", string.Join("\\", recordParts)));
