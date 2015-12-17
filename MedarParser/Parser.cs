@@ -3,37 +3,15 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using MedarParser.Model;
 
 namespace MedarParser
 {
-    public class Parser
+    public static class Parser
     {
-        #region Fields
-
-        int lineNumber;
-
-        #endregion
-
-        #region Constructor
-
-        public Parser()
-        {
-            ParserErrors = new Dictionary<int, IList<string>>();
-        }
-
-        #endregion
-
-        #region Properties
-
-        public IDictionary<int, IList<string>> ParserErrors { get; set; }
-
-        #endregion
-
         #region Parser Methods
 
-        public IEnumerable<Letter> ParseLetter(string text)
+        public static IEnumerable<Letter> ParseLetter(string text)
         {
             if (text == null)
                 throw new ArgumentNullException("text");
@@ -44,24 +22,25 @@ namespace MedarParser
             }
         }
 
-        public IEnumerable<Letter> ParseLetter(TextReader reader)
+        public static IEnumerable<Letter> ParseLetter(TextReader reader)
         {
             var letters = new List<Letter>();
-            lineNumber = -1;
-            ParserErrors.Clear();
+            var lineNumber = 1;
 
-            var line = ReadLine(reader);
+            var line = reader.ReadLine();
             do
             {
                 if (line != null)
-                    letters.Add(ParseLetterBlock(reader, line));
+                    letters.Add(ParseLetterBlock(reader, ref lineNumber, line));
+
+                lineNumber++;
             }
-            while ((line = ReadLine(reader)) != null);
+            while ((line = reader.ReadLine()) != null);
 
             return letters;
         }
 
-        public IEnumerable<Labo> ParseLabo(string text)
+        public static IEnumerable<Labo> ParseLabo(string text)
         {
             if (text == null)
                 throw new ArgumentNullException("text");
@@ -72,26 +51,25 @@ namespace MedarParser
             }
         }
 
-        public IEnumerable<Labo> ParseLabo(TextReader reader)
+        public static IEnumerable<Labo> ParseLabo(TextReader reader)
         {
             var labos = new List<Labo>();
-            lineNumber = -1;
-            ParserErrors.Clear();
+            var lineNumber = 1;
 
-            var line = ReadLine(reader);
-            var previousLineNumber = -1;
+            var line = reader.ReadLine();
+            var previousLineNumber = 0;
             string previousLaboCode = null;
             Labo labo = null;
             do
             {
-                var currentLineNumber = LineNumber(line);
+                var currentLineNumber = LineNumber(line, previousLineNumber, labo.ParserErrors);
                 if (currentLineNumber == 9999)
                     break;
                 if (currentLineNumber != (previousLineNumber + 1))
-                    ParserErrors.AddItem(lineNumber, string.Format("Lines not in sequence: line {0} followed by line {1}: {2}", previousLineNumber, currentLineNumber, line));
+                    labo?.ParserErrors.AddItem(lineNumber, $"Lines not in sequence: line {previousLineNumber} followed by line {currentLineNumber}: {line}");
                 previousLineNumber = currentLineNumber;
 
-                var currentLaboCode = LaboCode(line);
+                var currentLaboCode = LaboCode(line, lineNumber, labo.ParserErrors);
                 if (currentLaboCode != previousLaboCode)
                 {
                     labo = new Labo() { Code = currentLaboCode };
@@ -99,62 +77,65 @@ namespace MedarParser
                     previousLaboCode = currentLaboCode;
                 }
 
-                var recordDescriptor = LaboRecordDescriptor(line);
-                ParseLaboRecord(recordDescriptor, labo, LaboRecordParts(line));
+                var recordDescriptor = LaboRecordDescriptor(line, lineNumber, labo.ParserErrors);
+                var recordParts = LaboRecordParts(line, lineNumber, labo.ParserErrors);
+                ParseLaboRecord(recordDescriptor, labo, recordParts, lineNumber);
+
+                lineNumber++;
             }
-            while ((line = ReadLine(reader)) != null && !line.StartsWith("END"));
+            while ((line = reader.ReadLine()) != null && !line.StartsWith("END"));
 
             return labos;
         }
 
         #endregion
 
-        #region Private Parser Methods
+        #region Labo Parser Methods
 
-        void ParseLaboRecord(string recordDescriptor, Labo labo, IList<string> recordParts)
+        static void ParseLaboRecord(string recordDescriptor, Labo labo, IList<string> recordParts, int lineNumber)
         {
             switch (recordDescriptor)
             {
                 case "S1":
-                    ParseLaboS1(recordParts, labo);
+                    ParseLaboS1(recordParts, labo, lineNumber);
                     break;
                 case "S2":
-                    ParseLaboS2(recordParts, labo);
+                    ParseLaboS2(recordParts, labo, lineNumber);
                     break;
                 case "S3":
-                    ParseLaboS3(recordParts, labo);
+                    ParseLaboS3(recordParts, labo, lineNumber);
                     break;
                 case "S4":
-                    ParseLaboS4(recordParts, labo);
+                    ParseLaboS4(recordParts, labo, lineNumber);
                     break;
                 case "S5":
-                    ParseLaboS5(recordParts, labo);
+                    ParseLaboS5(recordParts, labo, lineNumber);
                     break;
                 case "S6":
-                    ParseLaboS6(recordParts, labo);
+                    ParseLaboS6(recordParts, labo, lineNumber);
                     break;
                 case "C1":
-                    ParseLaboC1(recordParts, labo);
+                    ParseLaboC1(recordParts, labo, lineNumber);
                     break;
                 case "A1":
-                    ParseLaboA1(recordParts, labo);
+                    ParseLaboA1(recordParts, labo, lineNumber);
                     break;
                 case "D1":
-                    ParseLaboD1(recordParts, labo);
+                    ParseLaboD1(recordParts, labo, lineNumber);
                     break;
                 case "R1":
-                    ParseLaboR1(recordParts, labo);
+                    ParseLaboR1(recordParts, labo, lineNumber);
                     break;
                 default:
-                    ParserErrors.AddItem(lineNumber, string.Format("Unknown record descriptor '{0}'", recordDescriptor));
+                    labo.ParserErrors.AddItem(lineNumber, $"Unknown record descriptor '{recordDescriptor}'");
                     break;
             }
         }
 
-        void ParseLaboS1(IList<string> recordParts, Labo labo)
+        static void ParseLaboS1(IList<string> recordParts, Labo labo, int lineNumber)
         {
             if (recordParts.Count != 2)
-                ParserErrors.AddItem(lineNumber, string.Format("Expected 2 parts in S1 but got {0} parts: '{1}'", recordParts.Count, string.Join("\\", recordParts)));
+                labo.ParserErrors.AddItem(lineNumber, $"Expected 2 parts in S1 but got {recordParts.Count} parts: '{string.Join("\\", recordParts)}'");
 
             labo.Code = recordParts.ElementAtOrDefault(0);
             if (labo.Patient == null)
@@ -162,10 +143,10 @@ namespace MedarParser
             labo.Patient.Key = recordParts.ElementAtOrDefault(1);
         }
 
-        void ParseLaboS2(IList<string> recordParts, Labo labo)
+        static void ParseLaboS2(IList<string> recordParts, Labo labo, int lineNumber)
         {
             if (recordParts.Count != 2)
-                ParserErrors.AddItem(lineNumber, string.Format("Expected 2 parts in S2 but got {0} parts: '{1}'", recordParts.Count, string.Join("\\", recordParts)));
+                labo.ParserErrors.AddItem(lineNumber, $"Expected 2 parts in S2 but got {recordParts.Count} parts: '{string.Join("\\", recordParts)}'");
 
             if (labo.Patient == null)
                 labo.Patient = new LaboPatient();
@@ -173,10 +154,10 @@ namespace MedarParser
             labo.Patient.FirstName = recordParts.ElementAtOrDefault(1);
         }
 
-        void ParseLaboS3(IList<string> recordParts, Labo labo)
+        static void ParseLaboS3(IList<string> recordParts, Labo labo, int lineNumber)
         {
             if (recordParts.Count != 2)
-                ParserErrors.AddItem(lineNumber, string.Format("Expected 2 parts in S3 but got {0} parts: '{1}'", recordParts.Count, string.Join("\\", recordParts)));
+                labo.ParserErrors.AddItem(lineNumber, $"Expected 2 parts in S3 but got {recordParts.Count} parts: '{string.Join("\\", recordParts)}'");
 
             if (labo.Patient == null)
                 labo.Patient = new LaboPatient();
@@ -184,33 +165,34 @@ namespace MedarParser
             labo.Patient.PostalName = recordParts.ElementAtOrDefault(1);
         }
 
-        void ParseLaboS4(IList<string> recordParts, Labo labo)
+        static void ParseLaboS4(IList<string> recordParts, Labo labo, int lineNumber)
         {
             if (recordParts.Count != 2)
-                ParserErrors.AddItem(lineNumber, string.Format("Expected 2 parts in S4 but got {0} parts: '{1}'", recordParts.Count, string.Join("\\", recordParts)));
+                labo.ParserErrors.AddItem(lineNumber, $"Expected 2 parts in S4 but got {recordParts.Count} parts: '{string.Join("\\", recordParts)}'");
 
             if (labo.Patient == null)
                 labo.Patient = new LaboPatient();
-            labo.Patient.BirthDate = recordParts.ElementAtOrDefault(0).Maybe(s => s.ToNullableDatetime("dd/MM/yyyy"));
-            labo.Patient.Sex = recordParts.ElementAtOrDefault(1).Maybe(s =>
+            labo.Patient.BirthDate = recordParts.ElementAtOrDefault(0)?.ToNullableDatetime("dd/MM/yyyy");
+
+            switch (recordParts.ElementAtOrDefault(1))
             {
-                switch (s)
-                {
-                    case "F":
-                    case "V":
-                        return Sex.Female;
-                    case "M":
-                        return Sex.Male;
-                    default:
-                        return Sex.Unknown;
-                }
-            });
+                case "F":
+                case "V":
+                    labo.Patient.Sex = Sex.Female;
+                    break;
+                case "M":
+                    labo.Patient.Sex = Sex.Male;
+                    break;
+                default:
+                    labo.Patient.Sex = Sex.Unknown;
+                    break;
+            }
         }
 
-        void ParseLaboS5(IList<string> recordParts, Labo labo)
+        static void ParseLaboS5(IList<string> recordParts, Labo labo, int lineNumber)
         {
             if (recordParts.Count != 5)
-                ParserErrors.AddItem(lineNumber, string.Format("Expected 5 parts in S5 but got {0} parts: '{1}'", recordParts.Count, string.Join("\\", recordParts)));
+                labo.ParserErrors.AddItem(lineNumber, $"Expected 5 parts in S5 but got {recordParts.Count} parts: '{string.Join("\\", recordParts)}'");
 
             if (labo.Mutuality == null)
                 labo.Mutuality = new Mutuality();
@@ -221,10 +203,10 @@ namespace MedarParser
             labo.Mutuality.Holder = recordParts.ElementAtOrDefault(4);
         }
 
-        void ParseLaboS6(IList<string> recordParts, Labo labo)
+        static void ParseLaboS6(IList<string> recordParts, Labo labo, int lineNumber)
         {
             if (recordParts.Count != 2)
-                ParserErrors.AddItem(lineNumber, string.Format("Expected 2 parts in S6 but got {0} parts: '{1}'", recordParts.Count, string.Join("\\", recordParts)));
+                labo.ParserErrors.AddItem(lineNumber, $"Expected 2 parts in S6 but got {recordParts.Count} parts: '{string.Join("\\", recordParts)}'");
 
             if (labo.Patient == null)
                 labo.Patient = new LaboPatient();
@@ -232,44 +214,45 @@ namespace MedarParser
             labo.Patient.UniqueMedicalRecordNumber = recordParts.ElementAtOrDefault(1);
         }
 
-        void ParseLaboC1(IList<string> recordParts, Labo labo)
+        static void ParseLaboC1(IList<string> recordParts, Labo labo, int lineNumber)
         {
             if (recordParts.Count != 2)
-                ParserErrors.AddItem(lineNumber, string.Format("Expected 4 parts in C1 but got {0} parts: '{1}'", recordParts.Count, string.Join("\\", recordParts)));
+                labo.ParserErrors.AddItem(lineNumber, $"Expected 4 parts in C1 but got {recordParts.Count} parts: '{string.Join("\\", recordParts)}'");
 
             if (labo.Contact == null)
                 labo.Contact = new Contact();
             labo.Contact.Number = recordParts.ElementAtOrDefault(0);
-            labo.Contact.Type = recordParts.ElementAtOrDefault(1).Maybe(s =>
+
+            switch (recordParts.ElementAtOrDefault(1))
             {
-                switch (s)
-                {
-                    case "01":
-                    case "1":
-                        return ContactType.Consultation;
-                    case "02":
-                    case "2":
-                        return ContactType.Hospitalization;
-                    default:
-                        return ContactType.Unknown;
-                }
-            });
-            labo.Contact.StartDate = recordParts.ElementAtOrDefault(2).Maybe(s => s.ToNullableDatetime("dd/MM/yyyy"));
-            labo.Contact.EndDate = recordParts.ElementAtOrDefault(3).Maybe(s => s.ToNullableDatetime("dd/MM/yyyy"));
+                case "01":
+                case "1":
+                    labo.Contact.Type = ContactType.Consultation;
+                    break;
+                case "02":
+                case "2":
+                    labo.Contact.Type = ContactType.Hospitalization;
+                    break;
+                default:
+                    labo.Contact.Type = ContactType.Unknown;
+                    break;
+            }
+            labo.Contact.StartDate = recordParts.ElementAtOrDefault(2)?.ToNullableDatetime("dd/MM/yyyy");
+            labo.Contact.EndDate = recordParts.ElementAtOrDefault(3)?.ToNullableDatetime("dd/MM/yyyy");
         }
 
-        void ParseLaboA1(IList<string> recordParts, Labo labo)
+        static void ParseLaboA1(IList<string> recordParts, Labo labo, int lineNumber)
         {
             if (recordParts.Count != 1)
-                ParserErrors.AddItem(lineNumber, string.Format("Expected 1 parts in A1 but got {0} parts: '{1}'", recordParts.Count, string.Join("\\", recordParts)));
+                labo.ParserErrors.AddItem(lineNumber, $"Expected 1 parts in A1 but got {recordParts.Count} parts: '{string.Join("\\", recordParts)}'");
 
-            labo.ArrivalDate = recordParts.ElementAtOrDefault(2).Maybe(s => s.ToNullableDatetime("dd/MM/yyyy"));
+            labo.ArrivalDate = recordParts.ElementAtOrDefault(2)?.ToNullableDatetime("dd/MM/yyyy");
         }
 
-        void ParseLaboD1(IList<string> recordParts, Labo labo)
+        static void ParseLaboD1(IList<string> recordParts, Labo labo, int lineNumber)
         {
             if (recordParts.Count != 2)
-                ParserErrors.AddItem(lineNumber, string.Format("Expected 2 parts in D1 but got {0} parts: '{1}'", recordParts.Count, string.Join("\\", recordParts)));
+                labo.ParserErrors.AddItem(lineNumber, $"Expected 2 parts in D1 but got {recordParts.Count} parts: '{string.Join("\\", recordParts)}'");
 
             if (labo.Doctor == null)
                 labo.Doctor = new Doctor();
@@ -277,13 +260,13 @@ namespace MedarParser
             labo.Doctor.FirstName = recordParts.ElementAtOrDefault(1);
         }
 
-        void ParseLaboR1(IList<string> recordParts, Labo labo)
+        static void ParseLaboR1(IList<string> recordParts, Labo labo, int lineNumber)
         {
             if (recordParts.Count != 5)
-                ParserErrors.AddItem(lineNumber, string.Format("Expected 5 parts in R1 but got {0} parts: '{1}'", recordParts.Count, string.Join("\\", recordParts)));
+                labo.ParserErrors.AddItem(lineNumber, $"Expected 5 parts in R1 but got {recordParts.Count} parts: '{string.Join("\\", recordParts)}'");
 
-            var code = recordParts.ElementAtOrDefault(0).Maybe(s => s.Trim());
-            var description = recordParts.ElementAtOrDefault(1).Maybe(s => s.Trim());
+            var code = recordParts.ElementAtOrDefault(0)?.Trim();
+            var description = recordParts.ElementAtOrDefault(1)?.Trim();
             if (code.IsNullOrEmpty())
             {
                 if (description.IsNullOrEmpty()) //TITLE
@@ -297,14 +280,14 @@ namespace MedarParser
                     var lastResultGroup = labo.ResultGroups.LastOrDefault();
                     if (lastResultGroup == null)
                     {
-                        ParserErrors.AddItem(lineNumber, string.Format("No result group found: '{0}'", string.Join("\\", recordParts)));
+                        labo.ParserErrors.AddItem(lineNumber, $"No result group found: '{string.Join("\\", recordParts)}'");
                         lastResultGroup = new LaboResultGroup();
                         labo.ResultGroups.Add(lastResultGroup);
                     }
 
                     var previousAnalysis = lastResultGroup.Results.LastOrDefault();
                     if (previousAnalysis == null)
-                        ParserErrors.AddItem(lineNumber, string.Format("No previous comment found to add coment to: '{0}'", string.Join("\\", recordParts)));
+                        labo.ParserErrors.AddItem(lineNumber, $"No previous comment found to add coment to: '{string.Join("\\", recordParts)}'");
                     else
                         string.Concat(previousAnalysis.Comment, previousAnalysis.Comment.IsNullOrEmpty() ? null : Environment.NewLine, recordParts.ElementAtOrDefault(4));
                 }
@@ -313,14 +296,14 @@ namespace MedarParser
             {
                 if (description.IsNullOrEmpty()) //SPECIFIC COMMENT TO REFERENCED ANALYSIS
                 {
-           
+
                 }
                 else //NORMAL ANALYSIS
                 {
                     var lastResultGroup = labo.ResultGroups.LastOrDefault();
                     if (lastResultGroup == null)
                     {
-                        ParserErrors.AddItem(lineNumber, string.Format("No result group found: '{0}'", string.Join("\\", recordParts)));
+                        labo.ParserErrors.AddItem(lineNumber, $"No result group found: '{string.Join("\\", recordParts)}'");
                         lastResultGroup = new LaboResultGroup();
                         labo.ResultGroups.Add(lastResultGroup);
                     }
@@ -336,50 +319,58 @@ namespace MedarParser
             }
         }
 
-        Letter ParseLetterBlock(TextReader reader, string line)
+        #endregion
+
+        #region Letter Parser Methods
+
+        static Letter ParseLetterBlock(TextReader reader, ref int lineNumber, string line)
         {
             var letter = new Letter();
 
-            letter.Header = ParseHeaderBlock(reader, line);
+            letter.Header = ParseHeaderBlock(reader, ref lineNumber, line, letter.ParserErrors);
 
-            line = ReadLine(reader);
+            lineNumber++;
+            line = reader.ReadLine();
 
             if (line == null)
-                ParserErrors.AddItem(lineNumber, string.Format("No body block defined"));
+                letter.ParserErrors.AddItem(lineNumber, "No body block defined");
             else
-                letter.Body = ParseBodyBlock(reader, line);
+                letter.Body = ParseBodyBlock(reader, ref lineNumber, line);
 
             return letter;
         }
 
-        Header ParseHeaderBlock(TextReader reader, string line)
+        static Header ParseHeaderBlock(TextReader reader, ref int lineNumber, string line, IDictionary<int, IList<string>> parserErrors)
         {
             var header = new Header();
 
-            header.From = ParseFrom(line);
+            header.From = ParseFrom(line, lineNumber, parserErrors);
 
-            line = ReadLine(reader);
-            header.To = ParseFrom(line);
+            lineNumber++;
+            line = reader.ReadLine();
+            header.To = ParseFrom(line, lineNumber, parserErrors);
 
-            line = ReadLine(reader);
-            header.Subject = ParseSubject(line);
+            lineNumber++;
+            line = reader.ReadLine();
+            header.Subject = ParseSubject(line, lineNumber, parserErrors);
 
-            line = ReadLine(reader);
-            header.Info = ParseInfo(line);
+            lineNumber++;
+            line = reader.ReadLine();
+            header.Info = ParseInfo(line, lineNumber, parserErrors);
 
             return header;
         }
 
-        Person ParseFrom(string line)
+        static Person ParseFrom(string line, int lineNumber, IDictionary<int, IList<string>> parserErrors)
         {
             var person = new Person();
 
             if (line == null || line.Length < 12)
                 return null;
 
-            var lineParts = line.Maybe(s => s.Substring(11).Split('|').ToList());
+            var lineParts = line?.Substring(11).Split('|').ToList();
             if (lineParts.Count != 6)
-                ParserErrors.AddItem(lineNumber, string.Format("Expected 6 parts in /FROM but got {0} parts: '{1}'", lineParts.Count, line));
+                parserErrors.AddItem(lineNumber, $"Expected 6 parts in /FROM but got {lineParts.Count} parts: '{line}'");
 
             person.Name = lineParts.ElementAtOrDefault(0);
             person.Street = lineParts.ElementAtOrDefault(1);
@@ -394,16 +385,16 @@ namespace MedarParser
             return person;
         }
 
-        Person ParseTo(string line)
+        static Person ParseTo(string line, int lineNumber, IDictionary<int, IList<string>> parserErrors)
         {
             var person = new Person();
 
             if (line == null || line.Length < 12)
                 return null;
 
-            var lineParts = line.Maybe(s => s.Substring(11).Split('|').ToList());
+            var lineParts = line?.Substring(11).Split('|').ToList();
             if (lineParts.Count != 6)
-                ParserErrors.AddItem(lineNumber, string.Format("Expected 6 parts in /TO but got {0} parts: '{1}'", lineParts.Count, line));
+                parserErrors.AddItem(lineNumber, $"Expected 6 parts in /TO but got {lineParts.Count} parts: '{line}'");
 
             person.Name = lineParts.ElementAtOrDefault(0);
             person.Street = lineParts.ElementAtOrDefault(1);
@@ -418,36 +409,37 @@ namespace MedarParser
             return person;
         }
 
-        LetterPatient ParseSubject(string line)
+        static LetterPatient ParseSubject(string line, int lineNumber, IDictionary<int, IList<string>> parserErrors)
         {
             var patient = new LetterPatient();
 
             if (line == null || line.Length < 12)
                 return null;
 
-            var lineParts = line.Maybe(s => s.Substring(11).Split('|').ToList());
+            var lineParts = line?.Substring(11).Split('|').ToList();
             if (lineParts.Count != 7)
-                ParserErrors.AddItem(lineNumber, string.Format("Expected 7 parts in /SUBJECT but got {0} parts: '{1}'", lineParts.Count, line));
+                parserErrors.AddItem(lineNumber, $"Expected 7 parts in /SUBJECT but got {lineParts.Count} parts: '{line}'");
 
             patient.FirstName = lineParts.ElementAtOrDefault(0);
             patient.LastName = lineParts.ElementAtOrDefault(1);
             patient.Street = lineParts.ElementAtOrDefault(2);
             patient.PostalCode = lineParts.ElementAtOrDefault(3);
             patient.PostalName = lineParts.ElementAtOrDefault(4);
-            patient.BirthDate = lineParts.ElementAtOrDefault(5).Maybe(s => s.ToNullableDatetime("dd/MM/yyyy"));
-            patient.Sex = lineParts.ElementAtOrDefault(6).Maybe(s =>
+            patient.BirthDate = lineParts.ElementAtOrDefault(5)?.ToNullableDatetime("dd/MM/yyyy");
+
+            switch (lineParts.ElementAtOrDefault(6))
             {
-                switch (s)
-                {
-                    case "F":
-                    case "V":
-                        return Sex.Female;
-                    case "M":
-                        return Sex.Male;
-                    default:
-                        return Sex.Unknown;
-                }
-            });
+                case "F":
+                case "V":
+                    patient.Sex = Sex.Female;
+                    break;
+                case "M":
+                    patient.Sex = Sex.Male;
+                    break;
+                default:
+                    patient.Sex = Sex.Unknown;
+                    break;
+            }
 
             for (int i = 7; i < lineParts.Count; i++)
                 patient.UnknownParts.Add(lineParts[i]);
@@ -455,16 +447,16 @@ namespace MedarParser
             return patient;
         }
 
-        Info ParseInfo(string line)
+        static Info ParseInfo(string line, int lineNumber, IDictionary<int, IList<string>> parserErrors)
         {
             var info = new Info();
 
             if (line == null || line.Length < 12)
                 return null;
 
-            var lineParts = line.Maybe(s => s.Substring(11).Split('|').ToList());
+            var lineParts = line?.Substring(11).Split('|').ToList();
             if (lineParts.Count != 2)
-                ParserErrors.AddItem(lineNumber, string.Format("Expected 2 parts in /INFO but got {0} parts: '{1}'", lineParts.Count, line));
+                parserErrors.AddItem(lineNumber, $"Expected 2 parts in /INFO but got {lineParts.Count} parts: '{line}'");
 
             info.ReferenceNumber = lineParts.ElementAtOrDefault(0);
             info.Date = lineParts.ElementAtOrDefault(1);
@@ -475,52 +467,56 @@ namespace MedarParser
             return info;
         }
 
-        Body ParseBodyBlock(TextReader reader, string line)
+        static Body ParseBodyBlock(TextReader reader, ref int lineNumber, string line)
         {
             var body = new Body();
             var sbText = new StringBuilder();
 
             do
             {
-            begin:
+                begin:
                 if (line != null && line.StartsWith("/TITLE"))
                     body.Title = line.Substring("/TITLE".Length + 1);
                 else if (line != null && line.StartsWith("/DATE"))
                     body.Date = line.Substring("/DATE".Length + 1).ToNullableDatetime("dd/M/yy", "dd/MM/yy", "dd/MM/yyyy");
                 else if (line != null && line.StartsWith("/EXAM"))
                 {
-                    body.Exams.Add(ParseExam(reader, ref line));
+                    body.Exams.Add(ParseExam(reader, ref lineNumber, ref line));
                     goto begin;
                 }
                 else if (line != null && line.StartsWith("/END"))
                     continue;
                 else
                     sbText.AppendLine(line);
+
+                lineNumber++;
             }
-            while ((line = ReadLine(reader)) != null);
+            while ((line = reader.ReadLine()) != null);
 
             body.Text = sbText.ToString();
 
             return body;
         }
 
-        Exam ParseExam(TextReader reader, ref string line)
+        static Exam ParseExam(TextReader reader, ref int lineNumber, ref string line)
         {
             var exam = new Exam();
             var sbText = new StringBuilder();
             exam.Name = line.Substring("/EXAM".Length + 1);
-            line = ReadLine(reader);
+
+            lineNumber++;
+            line = reader.ReadLine();
             do
             {
-            begin:
+                begin:
                 if (line != null && line.StartsWith("/DESCR"))
                 {
-                    exam.Description = ParseTextBlock(reader, ref line);
+                    exam.Description = ParseTextBlock(reader, ref lineNumber, ref line);
                     goto begin;
                 }
                 else if (line != null && line.StartsWith("/CONCL"))
                 {
-                    exam.Conclusion = ParseTextBlock(reader, ref line);
+                    exam.Conclusion = ParseTextBlock(reader, ref lineNumber, ref line);
                     goto begin;
                 }
                 else if (line != null && line.StartsWith("/RESULT"))
@@ -532,24 +528,28 @@ namespace MedarParser
                 else
                     sbText.AppendLine(line);
 
+                lineNumber++;
             }
-            while ((line = ReadLine(reader)) != null && !line.StartsWith("/END") && !line.StartsWith("/EXAM"));
+            while ((line = reader.ReadLine()) != null && !line.StartsWith("/END") && !line.StartsWith("/EXAM"));
 
             exam.Text = sbText.ToString();
 
             return exam;
         }
 
-        string ParseTextBlock(TextReader reader, ref string line)
+        static string ParseTextBlock(TextReader reader, ref int lineNumber, ref string line)
         {
             var sbDescription = new StringBuilder();
 
-            line = ReadLine(reader);
+            lineNumber++;
+            line = reader.ReadLine();
             do
             {
                 sbDescription.AppendLine(line);
+
+                lineNumber++;
             }
-            while ((line = ReadLine(reader)) != null && !line.StartsWith("/"));
+            while ((line = reader.ReadLine()) != null && !line.StartsWith("/"));
 
             return sbDescription.ToString();
         }
@@ -558,68 +558,54 @@ namespace MedarParser
 
         #region Methods
 
-        IList<string> LaboRecordParts(string line)
+        static IList<string> LaboRecordParts(string line, int lineNumber, IDictionary<int, IList<string>> parserErrors)
         {
             if (line.Length < 17)
             {
-                ParserErrors.AddItem(lineNumber, string.Format("Cannot parse record parst from posion 17- of line '{0}'", line));
+                parserErrors.AddItem(lineNumber, $"Cannot parse record parst from posion 17- of line '{line}'");
                 return null;
             }
 
             return line.Substring(16).Split('\\').ToList();
         }
 
-        string LaboRecordDescriptor(string line)
+        static string LaboRecordDescriptor(string line, int lineNumber, IDictionary<int, IList<string>> parserErrors)
         {
             if (line.Length < 16)
             {
-                ParserErrors.AddItem(lineNumber, string.Format("Cannot parse record descriptor on posion 15-16 of line '{0}'", line));
+                parserErrors.AddItem(lineNumber, $"Cannot parse record descriptor on posion 15-16 of line '{line}'");
                 return null;
             }
 
             return line.Substring(14, 2);
         }
 
-        string LaboCode(string line)
+        static string LaboCode(string line, int lineNumber, IDictionary<int, IList<string>> parserErrors)
         {
             if (line.Length < 14)
             {
-                ParserErrors.AddItem(lineNumber, string.Format("Cannot parse labocode on posion 5-14 of line '{0}'", line));
+                parserErrors.AddItem(lineNumber, $"Cannot parse labocode on posion 5-14 of line '{line}'");
                 return null;
             }
 
             return line.Substring(4, 10);
         }
 
-        int LineNumber(string line)
+        static int LineNumber(string line, int previouslineNumber, IDictionary<int, IList<string>> parserErrors)
         {
             if (line.Length < 4)
             {
-                ParserErrors.AddItem(lineNumber, string.Format("Cannot parse linenumber on posion 1-4 of line '{0}'", line));
+                parserErrors.AddItem(previouslineNumber + 1, $"Cannot parse linenumber on posion 1-4 of line '{line}'");
                 return -1;
             }
             int result = -1;
             if (!int.TryParse(line.Substring(0, 4), out result))
             {
-                ParserErrors.AddItem(lineNumber, string.Format("Invalid linenumber '{0}' (not a number) on posion 1-4 of line '{1}'", result, line));
+                parserErrors.AddItem(previouslineNumber + 1, $"Invalid linenumber '{result}' (not a number) on posion 1-4 of line '{line}'");
                 return -1;
             }
 
             return result;
-        }
-
-        string ReadLine(TextReader reader)
-        {
-            lineNumber++;
-            return reader.ReadLine();
-        }
-
-        string TrimToMaxSize(string input, int max)
-        {
-            if ((input != null) && (input.Length > max))
-                ParserErrors.AddItem(lineNumber, string.Format("Line exeeded max length of {0} characters: '{1}'", max, input));
-
-            return input;
         }
 
         #endregion

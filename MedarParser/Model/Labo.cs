@@ -11,6 +11,8 @@ namespace MedarParser.Model
         public Labo()
         {
             ResultGroups = new List<LaboResultGroup>();
+
+            ParserErrors = new Dictionary<int, IList<string>>();
         }
 
         public string Code { get; set; }
@@ -20,5 +22,7 @@ namespace MedarParser.Model
         public DateTime? ArrivalDate { get; set; }
         public Doctor Doctor { get; set; }
         public IList<LaboResultGroup> ResultGroups { get; set; }
+
+        public IDictionary<int, IList<string>> ParserErrors { get; set; }
     }
 }

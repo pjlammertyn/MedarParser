@@ -8,7 +8,14 @@ namespace MedarParser.Model
 {
     public class Letter
     {
+        public Letter()
+        {
+            ParserErrors = new Dictionary<int, IList<string>>();
+        }
+
         public Header Header { get; set; }
         public Body Body { get; set; }
+
+        public IDictionary<int, IList<string>> ParserErrors { get; set; }
     }
 }

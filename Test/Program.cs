@@ -8,8 +8,6 @@ namespace Test
     {
         static void Main(string[] args)
         {
-            var medarParser = new Parser();
-
             var text = @"/FROM    : Callens Francis| ||||1/01217/19/930|RXRIJ|Radiologie Rijselstraat
 /TO      : VANDERHAEGHE KARLEEN|MENENSTRAAT 62 |8940|WERVIK|059/303938|1/33194/84/004
 /SUBJECT : KATRIEN HELEEN|POLLET|Bergstraat 62 |8940|WERVIK|13/02/1945|F|198059|5702136044|5702136044
@@ -70,9 +68,10 @@ Dr. Callens Francis
    
 ";
 
-            var letters = medarParser.ParseLetter(text);
-            foreach (var parserError in medarParser.ParserErrors)
-                Console.WriteLine("error on line {0}: {1}", parserError.Key, string.Join(Environment.NewLine, parserError.Value));
+            var letters = Parser.ParseLetter(text);
+            foreach (var letter in letters)
+                foreach (var parserError in letter.ParserErrors)
+                    Console.WriteLine("error on line {0}: {1}", parserError.Key, string.Join(Environment.NewLine, parserError.Value));
             Console.WriteLine("Press enter to view result");
             Console.ReadLine();
             var json = JsonConvert.SerializeObject(letters, Formatting.Indented);
@@ -113,12 +112,13 @@ Dr. Callens Francis
 0031181561412RR1SEDI_1\sedimentatie 1 uur\1-14\mm\H 18
 END.
 ";
-            var labo = medarParser.ParseLabo(text);
-            foreach (var parserError in medarParser.ParserErrors)
-                Console.WriteLine("error on line {0}: {1}", parserError.Key, string.Join(Environment.NewLine, parserError.Value)); 
-            Console.WriteLine("Press enter to view result"); 
+            var labos = Parser.ParseLabo(text);
+            foreach (var labo in labos)
+                foreach (var parserError in labo.ParserErrors)
+                    Console.WriteLine("error on line {0}: {1}", parserError.Key, string.Join(Environment.NewLine, parserError.Value));
+            Console.WriteLine("Press enter to view result");
             Console.ReadLine();
-            json = JsonConvert.SerializeObject(labo, Formatting.Indented);
+            json = JsonConvert.SerializeObject(labos, Formatting.Indented);
             Console.WriteLine(json);
             Console.ReadLine();
         }
