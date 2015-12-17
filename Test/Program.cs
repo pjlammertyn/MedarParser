@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using MedarParser;
 using Newtonsoft.Json;
 
@@ -67,16 +68,19 @@ Dr. Callens Francis
 /END
    
 ";
-
-            var letters = Parser.ParseLetter(text);
-            foreach (var letter in letters)
-                foreach (var parserError in letter.ParserErrors)
-                    Console.WriteLine("error on line {0}: {1}", parserError.Key, string.Join(Environment.NewLine, parserError.Value));
-            Console.WriteLine("Press enter to view result");
-            Console.ReadLine();
-            var json = JsonConvert.SerializeObject(letters, Formatting.Indented);
-            Console.WriteLine(json);
-            Console.ReadLine();
+            var t = Task.Run(async () =>
+            {
+                var letters = await Parser.ParseLetter(text);
+                foreach (var letter in letters)
+                    foreach (var parserError in letter.ParserErrors)
+                        Console.WriteLine("error on line {0}: {1}", parserError.Key, string.Join(Environment.NewLine, parserError.Value));
+                Console.WriteLine("Press enter to view result");
+                Console.ReadLine();
+                var json = JsonConvert.SerializeObject(letters, Formatting.Indented);
+                Console.WriteLine(json);
+                Console.ReadLine();
+            });
+            t.Wait();
 
             text = @"0000181561412RS1181561412R\19580922VANA05
 0001181561412RS2Vanhooren\Julles Antoinette
@@ -112,15 +116,19 @@ Dr. Callens Francis
 0031181561412RR1SEDI_1\sedimentatie 1 uur\1-14\mm\H 18
 END.
 ";
-            var labos = Parser.ParseLabo(text);
-            foreach (var labo in labos)
-                foreach (var parserError in labo.ParserErrors)
-                    Console.WriteLine("error on line {0}: {1}", parserError.Key, string.Join(Environment.NewLine, parserError.Value));
-            Console.WriteLine("Press enter to view result");
-            Console.ReadLine();
-            json = JsonConvert.SerializeObject(labos, Formatting.Indented);
-            Console.WriteLine(json);
-            Console.ReadLine();
+            t = Task.Run(async () =>
+            {
+                var labos = await Parser.ParseLabo(text);
+                foreach (var labo in labos)
+                    foreach (var parserError in labo.ParserErrors)
+                        Console.WriteLine("error on line {0}: {1}", parserError.Key, string.Join(Environment.NewLine, parserError.Value));
+                Console.WriteLine("Press enter to view result");
+                Console.ReadLine();
+                var json = JsonConvert.SerializeObject(labos, Formatting.Indented);
+                Console.WriteLine(json);
+                Console.ReadLine();
+            });
+            t.Wait();
         }
     }
 }

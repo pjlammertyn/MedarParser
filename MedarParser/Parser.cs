@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using MedarParser.Model;
 
 namespace MedarParser
@@ -11,52 +12,52 @@ namespace MedarParser
     {
         #region Parser Methods
 
-        public static IEnumerable<Letter> ParseLetter(string text)
+        public static async Task<IEnumerable<Letter>> ParseLetter(string text)
         {
             if (text == null)
                 throw new ArgumentNullException("text");
 
             using (var reader = new StringReader(text))
             {
-                return ParseLetter(reader);
+                return await ParseLetter(reader);
             }
         }
 
-        public static IEnumerable<Letter> ParseLetter(TextReader reader)
+        public static async Task<IEnumerable<Letter>> ParseLetter(TextReader reader)
         {
             var letters = new List<Letter>();
             var lineNumber = 1;
 
-            var line = reader.ReadLine();
+            var line = await reader.ReadLineAsync();
             do
             {
                 if (line != null)
-                    letters.Add(ParseLetterBlock(reader, ref lineNumber, line));
+                    letters.Add(await ParseLetterBlock(reader, () => lineNumber, (ln) => lineNumber = ln, line));
 
                 lineNumber++;
             }
-            while ((line = reader.ReadLine()) != null);
+            while ((line = await reader.ReadLineAsync()) != null);
 
             return letters;
         }
 
-        public static IEnumerable<Labo> ParseLabo(string text)
+        public static async Task<IEnumerable<Labo>> ParseLabo(string text)
         {
             if (text == null)
                 throw new ArgumentNullException("text");
 
             using (var reader = new StringReader(text))
             {
-                return ParseLabo(reader);
+                return await ParseLabo(reader);
             }
         }
 
-        public static IEnumerable<Labo> ParseLabo(TextReader reader)
+        public static async Task<IEnumerable<Labo>> ParseLabo(TextReader reader)
         {
             var labos = new List<Labo>();
             var lineNumber = 1;
 
-            var line = reader.ReadLine();
+            var line = await reader.ReadLineAsync();
             var previousLineNumber = 0;
             string previousLaboCode = null;
             Labo labo = null;
@@ -83,7 +84,7 @@ namespace MedarParser
 
                 lineNumber++;
             }
-            while ((line = reader.ReadLine()) != null && !line.StartsWith("END"));
+            while ((line = await reader.ReadLineAsync()) != null && !line.StartsWith("END"));
 
             return labos;
         }
@@ -323,41 +324,45 @@ namespace MedarParser
 
         #region Letter Parser Methods
 
-        static Letter ParseLetterBlock(TextReader reader, ref int lineNumber, string line)
+        static async Task<Letter> ParseLetterBlock(TextReader reader, Func<int> lineNumberGetter, Action<int> lineNumberSetter, string line)
         {
             var letter = new Letter();
+            var lineNumber = lineNumberGetter();
 
-            letter.Header = ParseHeaderBlock(reader, ref lineNumber, line, letter.ParserErrors);
+            letter.Header = await ParseHeaderBlock(reader, () => lineNumber, (ln) => lineNumber = ln, line, letter.ParserErrors);
 
             lineNumber++;
-            line = reader.ReadLine();
+            line = await reader.ReadLineAsync();
 
             if (line == null)
                 letter.ParserErrors.AddItem(lineNumber, "No body block defined");
             else
-                letter.Body = ParseBodyBlock(reader, ref lineNumber, line);
+                letter.Body = await ParseBodyBlock(reader, () => lineNumber, (ln) => lineNumber = ln, line);
 
+            lineNumberSetter(lineNumber);
             return letter;
         }
 
-        static Header ParseHeaderBlock(TextReader reader, ref int lineNumber, string line, IDictionary<int, IList<string>> parserErrors)
+        static async Task<Header> ParseHeaderBlock(TextReader reader, Func<int> lineNumberGetter, Action<int> lineNumberSetter, string line, IDictionary<int, IList<string>> parserErrors)
         {
             var header = new Header();
+            var lineNumber = lineNumberGetter();
 
             header.From = ParseFrom(line, lineNumber, parserErrors);
 
             lineNumber++;
-            line = reader.ReadLine();
+            line = await reader.ReadLineAsync();
             header.To = ParseFrom(line, lineNumber, parserErrors);
 
             lineNumber++;
-            line = reader.ReadLine();
+            line = await reader.ReadLineAsync();
             header.Subject = ParseSubject(line, lineNumber, parserErrors);
 
             lineNumber++;
-            line = reader.ReadLine();
+            line = await reader.ReadLineAsync();
             header.Info = ParseInfo(line, lineNumber, parserErrors);
 
+            lineNumberSetter(lineNumber);
             return header;
         }
 
@@ -467,10 +472,11 @@ namespace MedarParser
             return info;
         }
 
-        static Body ParseBodyBlock(TextReader reader, ref int lineNumber, string line)
+        static async Task<Body> ParseBodyBlock(TextReader reader, Func<int> lineNumberGetter, Action<int> lineNumberSetter, string line)
         {
             var body = new Body();
             var sbText = new StringBuilder();
+            var lineNumber = lineNumberGetter();
 
             do
             {
@@ -481,7 +487,7 @@ namespace MedarParser
                     body.Date = line.Substring("/DATE".Length + 1).ToNullableDatetime("dd/M/yy", "dd/MM/yy", "dd/MM/yyyy");
                 else if (line != null && line.StartsWith("/EXAM"))
                 {
-                    body.Exams.Add(ParseExam(reader, ref lineNumber, ref line));
+                    body.Exams.Add(await ParseExam(reader, () => lineNumber, (ln) => lineNumber = ln, () => line, (l) => line = l));
                     goto begin;
                 }
                 else if (line != null && line.StartsWith("/END"))
@@ -491,32 +497,36 @@ namespace MedarParser
 
                 lineNumber++;
             }
-            while ((line = reader.ReadLine()) != null);
+            while ((line = await reader.ReadLineAsync()) != null);
 
             body.Text = sbText.ToString();
 
+            lineNumberSetter(lineNumber);
             return body;
         }
 
-        static Exam ParseExam(TextReader reader, ref int lineNumber, ref string line)
+        static async Task<Exam> ParseExam(TextReader reader, Func<int> lineNumberGetter, Action<int> lineNumberSetter, Func<string> lineGetter, Action<string> lineSetter)
         {
             var exam = new Exam();
             var sbText = new StringBuilder();
+            var lineNumber = lineNumberGetter();
+            var line = lineGetter();
+
             exam.Name = line.Substring("/EXAM".Length + 1);
 
             lineNumber++;
-            line = reader.ReadLine();
+            line = await reader.ReadLineAsync();
             do
             {
                 begin:
                 if (line != null && line.StartsWith("/DESCR"))
                 {
-                    exam.Description = ParseTextBlock(reader, ref lineNumber, ref line);
+                    exam.Description = await ParseTextBlock(reader, () => lineNumber, (ln) => lineNumber = ln, () => line, (l) => line = l);
                     goto begin;
                 }
                 else if (line != null && line.StartsWith("/CONCL"))
                 {
-                    exam.Conclusion = ParseTextBlock(reader, ref lineNumber, ref line);
+                    exam.Conclusion = await ParseTextBlock(reader, () => lineNumber, (ln) => lineNumber = ln, () => line, (l) => line = l);
                     goto begin;
                 }
                 else if (line != null && line.StartsWith("/RESULT"))
@@ -530,27 +540,33 @@ namespace MedarParser
 
                 lineNumber++;
             }
-            while ((line = reader.ReadLine()) != null && !line.StartsWith("/END") && !line.StartsWith("/EXAM"));
+            while ((line = await reader.ReadLineAsync()) != null && !line.StartsWith("/END") && !line.StartsWith("/EXAM"));
 
             exam.Text = sbText.ToString();
 
+            lineSetter(line);
+            lineNumberSetter(lineNumber);
             return exam;
         }
 
-        static string ParseTextBlock(TextReader reader, ref int lineNumber, ref string line)
+        static async Task<string> ParseTextBlock(TextReader reader, Func<int> lineNumberGetter, Action<int> lineNumberSetter, Func<string> lineGetter, Action<string> lineSetter)
         {
             var sbDescription = new StringBuilder();
+            var lineNumber = lineNumberGetter();
+            var line = lineGetter();
 
             lineNumber++;
-            line = reader.ReadLine();
+            line = await reader.ReadLineAsync();
             do
             {
                 sbDescription.AppendLine(line);
 
                 lineNumber++;
             }
-            while ((line = reader.ReadLine()) != null && !line.StartsWith("/"));
+            while ((line = await reader.ReadLineAsync()) != null && !line.StartsWith("/"));
 
+            lineSetter(line);
+            lineNumberSetter(lineNumber);
             return sbDescription.ToString();
         }
 
