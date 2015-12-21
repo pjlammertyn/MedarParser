@@ -63,14 +63,14 @@ namespace MedarParser
             Labo labo = null;
             do
             {
-                var currentLineNumber = LineNumber(line, previousLineNumber, labo.ParserErrors);
+                var currentLineNumber = LineNumber(line, previousLineNumber, labo?.ParserErrors);
                 if (currentLineNumber == 9999)
                     break;
                 if (currentLineNumber != (previousLineNumber + 1))
                     labo?.ParserErrors.AddItem(lineNumber, $"Lines not in sequence: line {previousLineNumber} followed by line {currentLineNumber}: {line}");
                 previousLineNumber = currentLineNumber;
 
-                var currentLaboCode = LaboCode(line, lineNumber, labo.ParserErrors);
+                var currentLaboCode = LaboCode(line, lineNumber, labo?.ParserErrors);
                 if (currentLaboCode != previousLaboCode)
                 {
                     labo = new Labo() { Code = currentLaboCode };
@@ -78,8 +78,8 @@ namespace MedarParser
                     previousLaboCode = currentLaboCode;
                 }
 
-                var recordDescriptor = LaboRecordDescriptor(line, lineNumber, labo.ParserErrors);
-                var recordParts = LaboRecordParts(line, lineNumber, labo.ParserErrors);
+                var recordDescriptor = LaboRecordDescriptor(line, lineNumber, labo?.ParserErrors);
+                var recordParts = LaboRecordParts(line, lineNumber, labo?.ParserErrors);
                 ParseLaboRecord(recordDescriptor, labo, recordParts, lineNumber);
 
                 lineNumber++;
@@ -609,13 +609,13 @@ namespace MedarParser
 
         static int LineNumber(string line, int previouslineNumber, IDictionary<int, IList<string>> parserErrors)
         {
-            if (line.Length < 4)
+            if (line.Length < 4 && parserErrors != null)
             {
                 parserErrors.AddItem(previouslineNumber + 1, $"Cannot parse linenumber on posion 1-4 of line '{line}'");
                 return -1;
             }
             int result = -1;
-            if (!int.TryParse(line.Substring(0, 4), out result))
+            if (!int.TryParse(line.Substring(0, 4), out result) && parserErrors != null)
             {
                 parserErrors.AddItem(previouslineNumber + 1, $"Invalid linenumber '{result}' (not a number) on posion 1-4 of line '{line}'");
                 return -1;
